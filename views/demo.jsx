@@ -11,6 +11,9 @@ import {TimingView} from './timing.jsx';
 import JSONView from './json-view.jsx';
 import samples from '../src/data/samples.json';
 import cachedModels from '../src/data/models.json';
+import ReactPlayer from "react-player"
+import {SearchResults} from "./search-results.jsx"
+import {getContentType} from 'watson-speech/speech-to-text/file-player';
 
 const ERR_MIC_NARROWBAND = 'Microphone transcription cannot accommodate narrowband voice models, please select a broadband one.';
 
@@ -149,6 +152,10 @@ export default React.createClass({
     this.playFile('audio/' + filename);
   },
 
+
+  handleSearchResultClick: function(word) {
+    this.player.seekTo(word.start_time / this.player.getDuration());
+  },
   /**
      * @param {File|Blob|String} file - url to an audio file or a File instance fro user-provided files
      */
@@ -165,9 +172,16 @@ export default React.createClass({
     //  * a few other things for backwards compatibility and sane defaults
     // In addition to this, it passes other service-level options along to the RecognizeStream that manages the actual WebSocket connection.
     this.handleStream(recognizeFile(this.getRecognizeOptions({
-      file: file, play: true, // play the audio out loud
-      realtime: true, // use a helper stream to slow down the transcript output to match the audio speed
+      file: file, play: false, // play the audio out loud
+      realtime: false, // use a helper stream to slow down the transcript output to match the audio speed
     })));
+    this.state.audioFile = file;
+    if (typeof file === 'string')
+      this.state.audioUrl = file;
+    else
+      getContentType(file).then((contentType) =>
+        this.state.audioUrl = URL.createObjectURL(new Blob([file], {type: contentType}))
+      );
   },
 
   handleStream(stream) {
@@ -407,6 +421,7 @@ export default React.createClass({
           </div>
         </div>
 
+        <ReactPlayer url={this.state.audioUrl} playing={true} controls={true} ref={(node) => {this.player = node;}}></ReactPlayer>
 
         <div className="flex buttons">
 
@@ -444,6 +459,9 @@ export default React.createClass({
           </Pane>
           <Pane label="JSON">
             <JSONView raw={this.state.rawMessages} formatted={this.state.formattedMessages}/>
+          </Pane>
+          <Pane label="Search Results">
+            <SearchResults messages={messages} kwOnClick={this.handleSearchResultClick} keywords={this.state.settingsAtStreamStart.keywords}/>
           </Pane>
         </Tabs>
 
